@@ -1,0 +1,39 @@
+@startuml
+
+!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+LAYOUT_WITH_LEGEND()
+
+Person(user, "Пользователь", "Просмотр фильмов, менеджмент подписки, выставление оценок")
+
+skinparam package {
+  BackgroundColor #fffdd0
+  BorderColor Black
+}
+
+package "CinemaAbyss" {
+  Container(proxy, "API GW", "Go", "Маршрутизация трафика")
+  Container(monolith, "Монолит", "Go", "Унаследованный функционал: пользователи, подписки, платежи")
+  Container(movies, "Movies Service", "Go", "Обработка метаданных (жанры, фильмы, оценки)")
+  Container(events, "Events Service", "Go + Kafka", "Публикация и обработка событий (регистрация, оценки)")
+  ContainerDb(db, "PostgreSQL", "DB", "Хранение данных (платежи, фильмы, пользователи")
+  Container(kafka, "Kafka", "Kafka", "Шина событий для микросервисов")
+  Container(s3, "S3", "Объектное хранилище", "Хранит файлы и видео")
+}
+
+System_Ext(reco, "Рекомендательная система")
+System_Ext(payment, "Платёжная система")
+
+Rel(user, proxy, "Использует", "HTTP")
+Rel(proxy, movies, "Маршрутизирует запросы к фильмам", "REST")
+Rel(proxy, monolith, "Маршрутизирует устаревшие запросы", "REST")
+Rel(proxy, events, "Отправляет события", "Kafka")
+Rel(movies, db, "Читает/пишет данные")
+Rel(movies, kafka, "Публикует события")
+Rel(events, kafka, "Читает события")
+Rel(events, db, "Обновляет данные")
+Rel(monolith, db, "Читает/пишет данные")
+Rel(monolith, payment, "Обрабатывает платежи", "REST")
+Rel(events, reco, "Отправляет данные для рекомендаций", "Kafka или REST")
+Rel(movies, s3, "Хранит обложки, трейлеры")
+
+@enduml
