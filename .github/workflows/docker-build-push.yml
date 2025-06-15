@@ -8,7 +8,7 @@ on:
       - 'src/**'
       - '.github/workflows/docker-build-push.yml'
   release:
-    types: [published]
+    types: [ published ]
 
 env:
   REGISTRY: ghcr.io
@@ -82,4 +82,18 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      
+        # NodeJS
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+        ode-version: '18'
+
+        # Зависимости
+      - name: Install npm dependencies for tests
+        run: npm install
+        working-directory: tests/postman
+
+        # Postman тесты
+      - name: Run Postman tests
+        run: npm run test:local
+        working-directory: tests/postman
