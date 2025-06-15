@@ -8,17 +8,22 @@ router = APIRouter()
 MONOLITH_URL = os.getenv("MONOLITH_URL", "http://monolith:8080")
 MOVIES_SERVICE_URL = os.getenv("MOVIES_SERVICE_URL", "http://movies-service:8081")
 
-@router.api_route("/api/movies", methods=["GET", "POST", "PUT", "DELETE"])
-async def movies_proxy(request: Request):
-    url = MOVIES_SERVICE_URL if should_use_new_service() else MONOLITH_URL
-    full_url = f"{url}/api/movies"
+def get_target_url(path: str) -> str:
+    if "/api/movies" in path:
+        base = MOVIES_SERVICE_URL if should_use_new_service() else MONOLITH_URL
+    else:
+        base = MONOLITH_URL
+    return f"{base}{path}"
+
+async def proxy_request(request: Request, path: str):
+    full_url = get_target_url(path)
 
     async with httpx.AsyncClient() as client:
         try:
             response = await client.request(
                 method=request.method,
                 url=full_url,
-                headers={k: v for k, v in request.headers.items()},
+                headers={k: v for k, v in request.headers.items() if k.lower() != "host"},
                 content=await request.body(),
                 params=request.query_params
             )
@@ -31,5 +36,38 @@ async def movies_proxy(request: Request):
     return Response(
         content=response.content,
         status_code=response.status_code,
-        headers=dict(response.headers)
+        headers={k: v for k, v in response.headers.items() if k.lower() != "content-encoding"}
     )
+
+
+@router.api_route("/api/movies", methods=["GET", "POST", "PUT", "DELETE"])
+async def movies_proxy(request: Request):
+    return await proxy_request(request, "/api/movies")
+
+@router.api_route("/api/movies/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+async def movies_proxy_dynamic(request: Request, path: str):
+    return await proxy_request(request, f"/api/movies/{path}")
+
+@router.api_route("/api/users", methods=["GET", "POST", "PUT", "DELETE"])
+async def users_proxy(request: Request):
+    return await proxy_request(request, "/api/users")
+
+@router.api_route("/api/users/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+async def users_proxy_dynamic(request: Request, path: str):
+    return await proxy_request(request, f"/api/users/{path}")
+
+@router.api_route("/api/payments", methods=["GET", "POST", "PUT", "DELETE"])
+async def payments_proxy(request: Request):
+    return await proxy_request(request, "/api/payments")
+
+@router.api_route("/api/payments/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+async def payments_proxy_dynamic(request: Request, path: str):
+    return await proxy_request(request, f"/api/payments/{path}")
+
+@router.api_route("/api/subscriptions", methods=["GET", "POST", "PUT", "DELETE"])
+async def subscriptions_proxy(request: Request):
+    return await proxy_request(request, "/api/subscriptions")
+
+@router.api_route("/api/subscriptions/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+async def subscriptions_proxy_dynamic(request: Request, path: str):
+    return await proxy_request(request, f"/api/subscriptions/{path}")
